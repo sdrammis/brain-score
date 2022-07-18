@@ -39,9 +39,13 @@ class Transformation(object):
     def __call__(self, *args, apply, aggregate=None, **kwargs):
         values = self._run_pipe(*args, apply=apply, **kwargs)
 
-        score = apply_aggregate(aggregate, values) if aggregate is not None else values
-        score = apply_aggregate(self.aggregate, score)
-        return score
+        score_test = apply_aggregate(aggregate, values[0]) if aggregate is not None else values[0]
+        score_train = apply_aggregate(aggregate, values[1]) if aggregate is not None else values[1]
+
+        score_test = apply_aggregate(self.aggregate, score_test)
+        score_train = apply_aggregate(self.aggregate, score_train)
+
+        return (score_test, score_train)
 
     def _run_pipe(self, *args, apply, **kwargs):
         generator = self.pipe(*args, **kwargs)
@@ -308,7 +312,8 @@ class CrossValidation(Transformation):
                    sorted(target_assembly[self._stratification_coord].values)
         cross_validation_values, splits = self._split.build_splits(target_assembly)
 
-        split_scores = []
+        split_scores_test = []
+        split_scores_train = []
         for split_iterator, (train_indices, test_indices), done \
                 in tqdm(enumerate_done(splits), total=len(splits), desc='cross-validation'):
             train_values, test_values = cross_validation_values[train_indices], cross_validation_values[test_indices]
@@ -321,12 +326,18 @@ class CrossValidation(Transformation):
 
             split_score = yield from self._get_result(train_source, train_target, test_source, test_target,
                                                       done=done)
-            split_score = split_score.expand_dims('split')
-            split_score['split'] = [split_iterator]
-            split_scores.append(split_score)
 
-        split_scores = Score.merge(*split_scores)
-        yield split_scores
+            split_score_test = split_score[0].expand_dims('split')
+            split_score_test['split'] = [split_iterator]
+            split_scores_test.append(split_score_test)
+
+            split_score_train = split_score[1].expand_dims('split')
+            split_score_train['split'] = [split_iterator]
+            split_scores_train.append(split_score_train)
+
+        split_scores_test = Score.merge(*split_scores_test)
+        split_scores_train = Score.merge(*split_scores_train)
+        yield (split_scores_test, split_scores_train)
 
     def aggregate(self, score):
         return self._split.aggregate(score)

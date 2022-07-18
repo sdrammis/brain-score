@@ -26,8 +26,12 @@ class CrossRegressedCorrelation:
     def apply(self, source_train, target_train, source_test, target_test):
         self.regression.fit(source_train, target_train)
         prediction = self.regression.predict(source_test)
-        score = self.correlation(prediction, target_test)
-        return score
+        testing_score = self.correlation(prediction, target_test)
+
+        fit = self.regression.predict(source_train)
+        training_score = self.correlation(fit, target_train)
+
+        return (testing_score, training_score)
 
     def aggregate(self, scores):
         return scores.median(dim='neuroid')
@@ -85,6 +89,7 @@ def linear_regression(xarray_kwargs=None):
     xarray_kwargs = xarray_kwargs or {}
     regression = XarrayRegression(regression, **xarray_kwargs)
     return regression
+
 
 def ridge_regression(xarray_kwargs=None):
     regression = Ridge()
