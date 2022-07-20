@@ -39,13 +39,16 @@ class Transformation(object):
     def __call__(self, *args, apply, aggregate=None, **kwargs):
         values = self._run_pipe(*args, apply=apply, **kwargs)
 
-        score_test = apply_aggregate(aggregate, values[0]) if aggregate is not None else values[0]
-        score_train = apply_aggregate(aggregate, values[1]) if aggregate is not None else values[1]
+        if len(values) == 2:
+            score_test = apply_aggregate(aggregate, values[0]) if aggregate is not None else values[0]
+            score_train = apply_aggregate(aggregate, values[1]) if aggregate is not None else values[1]
 
-        score_test = apply_aggregate(self.aggregate, score_test)
-        score_train = apply_aggregate(self.aggregate, score_train)
-
-        return (score_test, score_train)
+            score_test = apply_aggregate(self.aggregate, score_test)
+            score_train = apply_aggregate(self.aggregate, score_train)
+            return (score_test, score_train)
+        else: # len(values) == 1
+            score = apply_aggregate(aggregate, values) if aggregate is not None else values
+            return apply_aggregate(self.aggregate, score)
 
     def _run_pipe(self, *args, apply, **kwargs):
         generator = self.pipe(*args, **kwargs)
